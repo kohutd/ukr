@@ -216,7 +216,15 @@ list_available_versions() {
         return
     fi
 
-    curl -fsSL "$PROGRAM_BASE_URL/доступні-версії-$UKR_OS-$UKR_ARCH" || echo "  ПОМИЛКА: не вдалось отримати список."
+    AV=$(curl -fsSL "$PROGRAM_BASE_URL/доступні-версії-$UKR_OS-$UKR_ARCH.txt" || echo "")
+    if [ "$AV" == "" ]
+    then
+        echo -en ""
+    elif [[ "$AV" != *$'\n' ]]; then
+        echo -en "$AV\n"
+    else
+        echo -n "$AV"
+    fi
 }
 
 init_shells() {

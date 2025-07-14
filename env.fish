@@ -34,6 +34,13 @@ function __ukr_versions
     end
 end
 
+function __ukr_available_versions
+    set program $argv[1]
+    if test -n "$program"
+        укр доступні $program 2>/dev/null || echo ''
+    end
+end
+
 # List of all subcommands
 set -l subcommands встановити використовувати видалити поточна встановлені доступні програми ініціалізувати
 
@@ -42,14 +49,17 @@ complete -c укр -f -r -n "not __fish_seen_subcommand_from $subcommands" \
   -a "$subcommands" \
   -d "Команди"
 
-# встановити <program>
+# встановити <програма> <версія>
 complete -c укр -f -r -n '__fish_seen_subcommand_from встановити; and test (count (commandline -opc)) -eq 2' \
   -a "(__ukr_programs)" \
-  -d "Програми"
-complete -c укр -f -n '__fish_seen_subcommand_from встановити; and test (count (commandline -opc)) -ge 3' \
-  -a ""  # Stop further completions
+  -d "Доступні програми"
+complete -c укр -f -r -n '__fish_seen_subcommand_from встановити; and test (count (commandline -opc)) -eq 3' \
+  -a "(__ukr_available_versions (commandline -opc)[3])" \
+  -d "Доступні версії"
+complete -c укр -f -n '__fish_seen_subcommand_from встановити; and test (count (commandline -opc)) -ge 4' \
+  -a ""
 
-# використовувати <program> <version>
+# використовувати <програма> <версія>
 complete -c укр -f -r -n '__fish_seen_subcommand_from використовувати; and test (count (commandline -opc)) -eq 2' \
   -a "(__ukr_installed)" \
   -d "Встановлені програми"
@@ -59,7 +69,7 @@ complete -c укр -f -r -n '__fish_seen_subcommand_from використову�
 complete -c укр -f -n '__fish_seen_subcommand_from використовувати; and test (count (commandline -opc)) -ge 4' \
   -a ""
 
-# видалити <program> <version>
+# видалити <програма> <версія>
 complete -c укр -f -r -n '__fish_seen_subcommand_from видалити; and test (count (commandline -opc)) -eq 2' \
   -a "(__ukr_installed)" \
   -d "Встановлені програми"
@@ -69,7 +79,7 @@ complete -c укр -f -r -n '__fish_seen_subcommand_from видалити; and t
 complete -c укр -f -n '__fish_seen_subcommand_from видалити; and test (count (commandline -opc)) -ge 4' \
   -a ""
 
-# поточна/встановлені/доступні <program>
+# поточна/встановлені/доступні <програма>
 for sub in поточна встановлені доступні
     complete -c укр -f -r -n "__fish_seen_subcommand_from $sub; and test (count (commandline -opc)) -eq 2" \
       -a "(__ukr_installed)" \
