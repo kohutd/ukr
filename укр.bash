@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 UKR_ARCH=$(uname -m)
 case "$UKR_ARCH" in
@@ -58,11 +58,16 @@ usage() {
     echo "                  програми"
     echo "                  ініціалізувати"
     echo "                  оновитись"
+}
+
+usage_1() {
+    usage
     exit 1
 }
 
 info() {
     usage
+    exit 0
 }
 
 install_version() {
@@ -84,6 +89,16 @@ install_version() {
     then
       echo "ПОМИЛКА: Програму $PROGRAM не визначено."
       exit 1
+    fi
+
+    if [ -z "$VERSION" ]; then
+        echo "Версію не задано. Отримуємо останню доступну версію..."
+        VERSION=$(list_available_versions "$PROGRAM" | tail -n 1)
+        if [ -z "$VERSION" ]; then
+            echo "ПОМИЛКА: Не вдалося отримати останню версію для $PROGRAM."
+            exit 1
+        fi
+        echo "Остання доступна версія: $VERSION"
     fi
 
     mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM"
@@ -264,7 +279,7 @@ delete_version() {
 
     if [ -z "$PROGRAM" ]; then
         echo "ПОМИЛКА: Не вказано програму."
-        usage
+        usage_1
     fi
 
     if [ -n "$VERSION" ]; then
@@ -330,31 +345,30 @@ list_programs() {
 
 case "$1" in
     встановити)
-        [ -z "$2" ] && usage
-        [ -z "$3" ] && usage
+        [ -z "$2" ] && usage_1
         install_version "$2" "$3"
         ;;
     використовувати)
-        [ -z "$2" ] && usage
-        [ -z "$3" ] && usage
+        [ -z "$2" ] && usage_1
+        [ -z "$3" ] && usage_1
         use_version "$2" "$3"
         ;;
     поточна)
-        [ -z "$2" ] && usage
+        [ -z "$2" ] && usage_1
         current_version "$2"
         ;;
     встановлені)
         list_installed "$2"
         ;;
     доступні)
-        [ -z "$2" ] && usage
+        [ -z "$2" ] && usage_1
         list_available_versions "$2"
         ;;
     ініціалізувати)
         init_shells
         ;;
     видалити)
-        [ -z "$2" ] && usage
+        [ -z "$2" ] && usage_1
         delete_version "$2" "$3" "$4"
         ;;
     програми)

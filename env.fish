@@ -7,7 +7,7 @@ for p in $HOME/.local/share/укр/поточні/*
 end
 
 function укр
-    bash "$HOME/.укр/укр.sh" $argv
+    bash "$HOME/.укр/укр.bash" $argv
 
     for p in $HOME/.local/share/укр/поточні/*
         if test -d "$p/bin"
