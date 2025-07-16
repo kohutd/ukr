@@ -103,7 +103,7 @@ install_version() {
     TMPCHECKSUM=$(mktemp)
     TMPDIR=$(mktemp -d)
 
-    FILENAME="${PROGRAM}-${VERSION}-${UKR_OS}-${UKR_ARCH}.tar.gz"
+    FILENAME="${PROGRAM}-${VERSION}-${UKR_OS}-${UKR_ARCH}.tar.xz"
     URL="${PROGRAM_BASE_URL}/${VERSION}/${FILENAME}"
     CHECKSUM_URL="${URL}.sha256.signed"
 
@@ -155,7 +155,7 @@ install_version() {
     echo "- Контрольна сума перевірена."
 
     echo "- Розпаковуємо..."
-    if ! tar -xzf "$TMPFILE" -C "$TMPDIR"; then
+    if ! tar -xJf "$TMPFILE" -C "$TMPDIR"; then
         echo "  ПОМИЛКА: Не вдалося розпакувати архів."
         rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
         exit 1
