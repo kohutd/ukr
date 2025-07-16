@@ -39,11 +39,7 @@ UKR_DIR="$HOME/.укр"
 UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
 UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
 UKR_CURRENT_LINKS="$UKR_PROGRAMS_DIR/поточні"
-
-AVAILABLE_PROGRAMS=(
-  "ціль:https://github.com/tsil-ukr/files/raw/main/випуски-цілі"
-  "мавка:https://github.com/mavka-ukr/files/raw/main/випуски-мавки"
-)
+UKR_PROGRAMS_META="$UKR_DIR/програми"
 
 mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR"
 mkdir -p "$UKR_CURRENT_LINKS"
@@ -73,76 +69,107 @@ info() {
 install_version() {
     PROGRAM="$1"
     VERSION="$2"
-    PROGRAM_BASE_URL=""
+    PROGRAM_META_DIR="$UKR_DIR/програми/$PROGRAM"
+    URL_FILE="$PROGRAM_META_DIR/url.txt"
+    KEY_FILE="$PROGRAM_META_DIR/public_key.asc"
 
-    for AVAILABLE_PROGRAM in "${AVAILABLE_PROGRAMS[@]}" ; do
-        AVAILABLE_PROGRAM_NAME=${AVAILABLE_PROGRAM%%:*}
-        AVAILABLE_PROGRAM_URL=${AVAILABLE_PROGRAM#*:}
-
-        if [ "$PROGRAM" == "$AVAILABLE_PROGRAM_NAME" ]
-        then
-          PROGRAM_BASE_URL="$AVAILABLE_PROGRAM_URL"
-        fi
-    done
-
-    if [ -z "$PROGRAM_BASE_URL" ]
-    then
-      echo "ПОМИЛКА: Програму $PROGRAM не визначено."
-      exit 1
+    if [ ! -f "$URL_FILE" ] || [ ! -f "$KEY_FILE" ]; then
+        echo "ПОМИЛКА: Програму '$PROGRAM' не знайдено або метадані відсутні."
+        exit 1
     fi
+
+    PROGRAM_BASE_URL=$(< "$URL_FILE")
 
     if [ -z "$VERSION" ]; then
         echo "Версію не задано. Отримуємо останню доступну версію..."
         VERSION=$(list_available_versions "$PROGRAM" | tail -n 1)
         if [ -z "$VERSION" ]; then
-            echo "ПОМИЛКА: Не вдалося отримати останню версію для $PROGRAM."
+            echo "ПОМИЛКА: Не вдалося отримати останню версію для '$PROGRAM'."
             exit 1
         fi
         echo "Остання доступна версія: $VERSION"
     fi
 
     mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM"
-
     TARGET_DIR="$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM/$VERSION"
 
     if [ -d "$TARGET_DIR" ]; then
-        echo "Програму $PROGRAM $VERSION вже встановлено."
+        echo "Програму '$PROGRAM' версії $VERSION вже встановлено."
         return
     fi
 
     TMPFILE=$(mktemp)
+    TMPCHECKSUM=$(mktemp)
     TMPDIR=$(mktemp -d)
-    URL="${PROGRAM_BASE_URL}/${VERSION}/${PROGRAM}-${VERSION}-${UKR_OS}-${UKR_ARCH}.tar.gz"
+
+    FILENAME="${PROGRAM}-${VERSION}-${UKR_OS}-${UKR_ARCH}.tar.gz"
+    URL="${PROGRAM_BASE_URL}/${VERSION}/${FILENAME}"
+    CHECKSUM_URL="${URL}.checksum"
 
     echo "Встановлюємо $PROGRAM $VERSION:"
     echo "- Завантажуємо з $URL"
     if ! curl --progress-bar -fSL "$URL" -o "$TMPFILE"; then
-        echo "  ПОМИЛКА: Не вдалось завантажити."
-        rm -f "$TMPFILE"
+        echo "  ПОМИЛКА: Не вдалося завантажити $FILENAME"
+        rm -f "$TMPFILE" "$TMPCHECKSUM"
         rm -rf "$TMPDIR"
         exit 1
     fi
 
+    echo "- Завантажуємо контрольну суму з $CHECKSUM_URL"
+    if ! curl --silent -fSL "$CHECKSUM_URL" -o "$TMPCHECKSUM"; then
+        echo "  ПОМИЛКА: Не вдалося завантажити файл .checksum"
+        rm -f "$TMPFILE" "$TMPCHECKSUM"
+        rm -rf "$TMPDIR"
+        exit 1
+    fi
+
+    echo "- Перевіряємо підпис..."
+    GPG_TEMP_DIR=$(mktemp -d)
+    chmod 700 "$GPG_TEMP_DIR"
+
+    if ! gpg --homedir "$GPG_TEMP_DIR" --quiet --import "$KEY_FILE" &>/dev/null; then
+        echo "  ПОМИЛКА: Не вдалося імпортувати публічний ключ."
+        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
+        exit 1
+    fi
+
+    if ! gpg --homedir "$GPG_TEMP_DIR" --verify "$TMPCHECKSUM" &>/dev/null; then
+        echo "  ПОМИЛКА: Підпис недійсний або пошкоджений."
+        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
+        exit 1
+    fi
+
+    CHECKSUM_LINE=$(gpg --homedir "$GPG_TEMP_DIR" --decrypt "$TMPCHECKSUM" 2>/dev/null | grep "$FILENAME")
+    EXPECTED_HASH=$(echo "$CHECKSUM_LINE" | awk '{print $1}')
+    FILE_HASH=$(sha256sum "$TMPFILE" | awk '{print $1}')
+
+    if [ "$EXPECTED_HASH" != "$FILE_HASH" ]; then
+        echo "  ПОМИЛКА: Контрольна сума не збігається!"
+        echo "  Очікувалась: $EXPECTED_HASH"
+        echo "  Отримана:    $FILE_HASH"
+        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
+        exit 1
+    fi
+
+    echo "- Контрольна сума перевірена."
+
     echo "- Розпаковуємо..."
     if ! tar -xzf "$TMPFILE" -C "$TMPDIR"; then
-        echo "  ПОМИЛКА: Не вдалось розпакувати."
-        rm -f "$TMPFILE"
-        rm -rf "$TMPDIR"
+        echo "  ПОМИЛКА: Не вдалося розпакувати архів."
+        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
         exit 1
     fi
 
     EXTRACTED_DIR=$(find "$TMPDIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
     if [ -z "$EXTRACTED_DIR" ]; then
-        echo "  ПОМИЛКА: Не вдалось знайти розпаковану директорію."
-        rm -f "$TMPFILE"
-        rm -rf "$TMPDIR"
+        echo "  ПОМИЛКА: Не вдалося знайти розпаковану директорію."
+        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
         exit 1
     fi
 
     mv "$EXTRACTED_DIR" "$TARGET_DIR"
 
-    rm -f "$TMPFILE"
-    rm -rf "$TMPDIR"
+    rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
 
     echo "- Встановлено в $TARGET_DIR"
 
@@ -216,20 +243,13 @@ list_installed() {
 
 list_available_versions() {
     PROGRAM="$1"
-    PROGRAM_BASE_URL=""
+    URL_FILE="$UKR_PROGRAMS_META/$PROGRAM/url.txt"
 
-    for entry in "${AVAILABLE_PROGRAMS[@]}"; do
-        name=${entry%%:*}
-        url=${entry#*:}
-        if [ "$PROGRAM" = "$name" ]; then
-            PROGRAM_BASE_URL="$url"
-            break
-        fi
-    done
-
-    if [ -z "$PROGRAM_BASE_URL" ]; then
+    if [ ! -f "$URL_FILE" ]; then
         return
     fi
+
+    PROGRAM_BASE_URL=$(< "$URL_FILE")
 
     AV=$(curl -fsSL "$PROGRAM_BASE_URL/доступні-версії-$UKR_OS-$UKR_ARCH.txt" || echo "")
     if [ "$AV" == "" ]
@@ -333,13 +353,9 @@ delete_version() {
 }
 
 list_programs() {
-    if [ "${#AVAILABLE_PROGRAMS[@]}" -eq 0 ]; then
-        return
-    fi
-
-    for entry in "${AVAILABLE_PROGRAMS[@]}"; do
-        name="${entry%%:*}"
-        echo "$name"
+    for prog_dir in "$UKR_PROGRAMS_META/"*; do
+        [ -d "$prog_dir" ] || continue
+        basename "$prog_dir"
     done
 }
 
