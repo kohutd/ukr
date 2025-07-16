@@ -105,7 +105,7 @@ install_version() {
 
     FILENAME="${PROGRAM}-${VERSION}-${UKR_OS}-${UKR_ARCH}.tar.gz"
     URL="${PROGRAM_BASE_URL}/${VERSION}/${FILENAME}"
-    CHECKSUM_URL="${URL}.checksum"
+    CHECKSUM_URL="${URL}.sha256.signed"
 
     echo "Встановлюємо $PROGRAM $VERSION:"
     echo "- Завантажуємо з $URL"
@@ -118,7 +118,7 @@ install_version() {
 
     echo "- Завантажуємо контрольну суму з $CHECKSUM_URL"
     if ! curl --silent -fSL "$CHECKSUM_URL" -o "$TMPCHECKSUM"; then
-        echo "  ПОМИЛКА: Не вдалося завантажити файл .checksum"
+        echo "  ПОМИЛКА: Не вдалося завантажити файл .sha256.signed"
         rm -f "$TMPFILE" "$TMPCHECKSUM"
         rm -rf "$TMPDIR"
         exit 1
