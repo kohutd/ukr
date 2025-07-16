@@ -11,7 +11,7 @@ done
 # Bash completion for 'укр'
 
 укр() {
-  source "$HOME/.укр/укр.bash" "$@"
+  bash "$HOME/.укр/укр.bash" "$@"
 
   for p in "$HOME/.local/share/укр/поточні/"*; do
     if [ -d "$p/bin" ]; then
