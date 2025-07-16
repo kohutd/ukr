@@ -79,14 +79,21 @@ complete -c укр -f -r -n '__fish_seen_subcommand_from видалити; and t
 complete -c укр -f -n '__fish_seen_subcommand_from видалити; and test (count (commandline -opc)) -ge 4' \
   -a ""
 
-# поточна/встановлені/доступні <програма>
-for sub in поточна встановлені доступні
+# поточна/встановлені <програма>
+for sub in поточна встановлені
     complete -c укр -f -r -n "__fish_seen_subcommand_from $sub; and test (count (commandline -opc)) -eq 2" \
       -a "(__ukr_installed)" \
       -d "Встановлені програми"
     complete -c укр -f -n "__fish_seen_subcommand_from $sub; and test (count (commandline -opc)) -ge 3" \
       -a ""
 end
+
+# доступні <програма>
+complete -c укр -f -r -n "__fish_seen_subcommand_from доступні; and test (count (commandline -opc)) -eq 2" \
+  -a "(__ukr_programs)" \
+  -d "Доступні програми"
+complete -c укр -f -n "__fish_seen_subcommand_from доступні; and test (count (commandline -opc)) -ge 3" \
+  -a ""
 
 # програми / ініціалізувати — no args expected
 for sub in програми ініціалізувати
