@@ -1,14 +1,11 @@
 for p in "$HOME/.local/share/укр/поточні/"*; do
   if [ -d "$p/bin" ]; then
     case ":$PATH:" in
-      *":$p/bin:"*) ;;  # вже є в PATH, нічого не робимо
-      *) PATH="$p/bin:$PATH" ;;  # додаємо на початок
+      *":$p/bin:"*) ;;  
+      *) PATH="$p/bin:$PATH" ;;  
     esac
   fi
 done
-
-
-# Bash completion for 'укр'
 
 укр() {
   bash "$HOME/.укр/укр.bash" "$@"
@@ -16,8 +13,8 @@ done
   for p in "$HOME/.local/share/укр/поточні/"*; do
     if [ -d "$p/bin" ]; then
       case ":$PATH:" in
-        *":$p/bin:"*) ;;  # вже є в PATH, нічого не робимо
-        *) PATH="$p/bin:$PATH" ;;  # додаємо на початок
+        *":$p/bin:"*) ;;  
+        *) PATH="$p/bin:$PATH" ;;  
       esac
     fi
   done

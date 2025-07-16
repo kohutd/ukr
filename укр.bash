@@ -1,21 +1,11 @@
 #!/usr/bin/env bash
 
-UKR_ARCH=$(uname -m)
-case "$UKR_ARCH" in
-    x86_64 | amd64)
-        UKR_ARCH="x86_64"
-        ;;
-    aarch64 | arm64)
-        UKR_ARCH="aarch64"
-        ;;
-    i386 | i686)
-        UKR_ARCH="x86"
-        ;;
-    *)
-        echo "Архітектура не підтримується: $UKR_ARCH"
-        exit 1
-        ;;
-esac
+UKR_VERSION="0.1.0"
+UKR_DIR="$HOME/.укр"
+UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
+UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
+UKR_CURRENT_LINKS="$UKR_PROGRAMS_DIR/поточні"
+UKR_PROGRAMS_META="$UKR_DIR/програми"
 
 UKR_OS=$(uname -s)
 case "$UKR_OS" in
@@ -34,12 +24,22 @@ case "$UKR_OS" in
         ;;
 esac
 
-UKR_VERSION="0.1.0"
-UKR_DIR="$HOME/.укр"
-UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
-UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
-UKR_CURRENT_LINKS="$UKR_PROGRAMS_DIR/поточні"
-UKR_PROGRAMS_META="$UKR_DIR/програми"
+UKR_ARCH=$(uname -m)
+case "$UKR_ARCH" in
+    x86_64 | amd64)
+        UKR_ARCH="x86_64"
+        ;;
+    aarch64 | arm64)
+        UKR_ARCH="aarch64"
+        ;;
+    i386 | i686)
+        UKR_ARCH="x86"
+        ;;
+    *)
+        echo "Архітектура не підтримується: $UKR_ARCH"
+        exit 1
+        ;;
+esac
 
 mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR"
 mkdir -p "$UKR_CURRENT_LINKS"
@@ -61,6 +61,8 @@ usage_1() {
 }
 
 info() {
+    echo "укр $UKR_VERSION"
+    echo ""
     usage
     exit 0
 }
@@ -68,7 +70,7 @@ info() {
 install_version() {
     PROGRAM="$1"
     VERSION="$2"
-    PROGRAM_META_DIR="$UKR_DIR/програми/$PROGRAM"
+    PROGRAM_META_DIR="$UKR_PROGRAMS_META/$PROGRAM"
     URL_FILE="$PROGRAM_META_DIR/url.txt"
     KEY_FILE="$PROGRAM_META_DIR/public_key.asc"
 
