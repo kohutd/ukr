@@ -52,6 +52,8 @@ install_dependencies() {
     else
         echo "Автоматичне встановлення залежностей не підтримується для цієї ОС: $UKR_OS"
     fi
+
+    exit 1
 }
 
 # Check if install directory already exists
