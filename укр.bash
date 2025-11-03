@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-UKR_VERSION="0.1.0"
+UKR_VERSION="0.2.0"
 UKR_DIR="$HOME/.укр"
 UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
 UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
@@ -10,13 +10,13 @@ UKR_PROGRAMS_META="$UKR_DIR/програми"
 UKR_OS=$(uname -s)
 case "$UKR_OS" in
     Linux)
-        UKR_OS="linux"
+        UKR_OS="лінукс"
         ;;
     Darwin)
-        UKR_OS="darwin"
+        UKR_OS="дарвін"
         ;;
     CYGWIN* | MINGW* | MSYS*)
-        UKR_OS="windows"
+        UKR_OS="віндовс"
         ;;
     *)
         echo "Операційна система не підтримується: $UKR_OS"
@@ -27,13 +27,13 @@ esac
 UKR_ARCH=$(uname -m)
 case "$UKR_ARCH" in
     x86_64 | amd64)
-        UKR_ARCH="x86_64"
+        UKR_ARCH="ікс86_64"
         ;;
     aarch64 | arm64)
-        UKR_ARCH="aarch64"
+        UKR_ARCH="аарч64"
         ;;
     i386 | i686)
-        UKR_ARCH="x86"
+        UKR_ARCH="ікс86"
         ;;
     *)
         echo "Архітектура не підтримується: $UKR_ARCH"
