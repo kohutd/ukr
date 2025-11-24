@@ -418,7 +418,7 @@ download_file() {
 
     print_step "Завантажуємо $description..."
 
-    if ! wget --show-progress -O "$output_file" "$url" 2>&1; then
+    if ! wget -q --show-progress -O "$output_file" "$url" 2>&1; then
         print_error "Не вдалося завантажити $description"
         return 1
     fi
@@ -506,15 +506,15 @@ cmd_install() {
     # Prepare directories
     mkdir -p "$(dirname "$target_dir")"
 
-    # Create temporary files
-    tmpfile=$(mktemp)
-    tmpchecksum=$(mktemp)
-    tmpdir=$(mktemp -d)
-
     # Construct URLs
     filename="${program}-${version}-${UKR_OS}-${UKR_ARCH}.tar.xz"
     url="${base_url}/${version}/${filename}"
     checksum_url="${url}.sha256.signed"
+
+    # Create temporary files
+    tmpdir=$(mktemp -d)
+    tmpfile="$tmpdir/$filename"
+    tmpchecksum="$tmpdir/${filename}.sha256.signed"
 
     print_header "Встановлення ${COLOR_BWHITE}$program${COLOR_RESET} ${COLOR_BGREEN}$version${COLOR_RESET}"
 
