@@ -18,7 +18,7 @@ install_dependencies() {
 
     # Перевірка наявності команд
     missing_deps=()
-    for dep in curl gpg tar sha256sum unzip; do
+    for dep in wget gpg tar sha256sum unzip; do
         if ! command -v "$dep" >/dev/null 2>&1; then
             missing_deps+=("$dep")
         fi
@@ -36,19 +36,19 @@ install_dependencies() {
         if [ -f /etc/debian_version ]; then
             echo "Debian/Ubuntu-подібна система:"
             echo "sudo apt update"
-            echo "sudo apt install -y curl gnupg tar coreutils unzip"
+            echo "sudo apt install -y wget gnupg tar coreutils unzip"
         elif [ -f /etc/arch-release ]; then
             echo "Arch Linux-подібна система:"
-            echo "sudo pacman -Sy --needed --noconfirm curl gnupg tar coreutils unzip"
+            echo "sudo pacman -Sy --needed --noconfirm wget gnupg tar coreutils unzip"
         elif [ -f /etc/alpine-release ]; then
             echo "Alpine Linux:"
-            echo "sudo apk add curl gnupg tar coreutils unzip"
+            echo "sudo apk add wget gnupg tar coreutils unzip"
         else
-            echo "Невідома Linux-система. Будь ласка, встановіть вручну: curl, gnupg, tar, coreutils, unzip"
+            echo "Невідома Linux-система. Будь ласка, встановіть вручну: wget, gnupg, tar, coreutils, unzip"
         fi
     elif [ "$UKR_OS" = "darwin" ]; then
         echo "macOS:"
-        echo "brew install curl gnupg tar coreutils unzip"
+        echo "brew install wget gnupg tar coreutils unzip"
     else
         echo "Автоматичне встановлення залежностей не підтримується для цієї ОС: $UKR_OS"
     fi
@@ -69,7 +69,7 @@ mkdir -p "$INSTALL_DIR"
 
 # Download the ZIP file
 echo "Завантажуємо $ZIP_URL..."
-curl -L "$ZIP_URL" -o "$ZIP_FILE"
+wget -O "$ZIP_FILE" "$ZIP_URL"
 
 # Check if download succeeded
 if [ $? -ne 0 ]; then

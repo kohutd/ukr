@@ -288,7 +288,7 @@ list_available_versions() {
     fi
 
     base_url=$(cat "$url_file")
-    versions=$(curl -fsSL "$base_url/доступні-версії-$UKR_OS-$UKR_ARCH.txt" 2>/dev/null || echo "")
+    versions=$(wget -qO- "$base_url/доступні-версії-$UKR_OS-$UKR_ARCH.txt" 2>/dev/null || echo "")
 
     if [[ -z "$versions" ]]; then
         return 0
@@ -418,7 +418,7 @@ download_file() {
 
     print_step "Завантажуємо $description..."
 
-    if ! curl -fSL --progress-bar "$url" -o "$output_file"; then
+    if ! wget --show-progress -O "$output_file" "$url" 2>&1; then
         print_error "Не вдалося завантажити $description"
         return 1
     fi
@@ -526,7 +526,7 @@ cmd_install() {
 
     # Download checksum
     print_step "Завантажуємо контрольну суму..."
-    if ! curl --silent -fSL "$checksum_url" -o "$tmpchecksum" 2>&1; then
+    if ! wget -q -O "$tmpchecksum" "$checksum_url" 2>&1; then
         print_error "Не вдалося завантажити файл контрольної суми"
         cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
         exit 1
