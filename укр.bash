@@ -14,6 +14,51 @@ readonly UKR_CURRENT_LINKS="$UKR_PROGRAMS_DIR/поточні"
 readonly UKR_PROGRAMS_META="$UKR_DIR/програми"
 
 # ============================================================================
+# Кольори та стилі
+# ============================================================================
+
+# Check if terminal supports colors
+if [[ -t 1 ]] && command -v tput &>/dev/null && tput colors &>/dev/null && [[ $(tput colors) -ge 8 ]]; then
+    readonly COLOR_RESET='\033[0m'
+    readonly COLOR_BOLD='\033[1m'
+    readonly COLOR_DIM='\033[2m'
+
+    readonly COLOR_RED='\033[0;31m'
+    readonly COLOR_GREEN='\033[0;32m'
+    readonly COLOR_YELLOW='\033[0;33m'
+    readonly COLOR_BLUE='\033[0;34m'
+    readonly COLOR_MAGENTA='\033[0;35m'
+    readonly COLOR_CYAN='\033[0;36m'
+    readonly COLOR_WHITE='\033[0;37m'
+
+    readonly COLOR_BRED='\033[1;31m'
+    readonly COLOR_BGREEN='\033[1;32m'
+    readonly COLOR_BYELLOW='\033[1;33m'
+    readonly COLOR_BBLUE='\033[1;34m'
+    readonly COLOR_BMAGENTA='\033[1;35m'
+    readonly COLOR_BCYAN='\033[1;36m'
+    readonly COLOR_BWHITE='\033[1;37m'
+else
+    readonly COLOR_RESET=''
+    readonly COLOR_BOLD=''
+    readonly COLOR_DIM=''
+    readonly COLOR_RED=''
+    readonly COLOR_GREEN=''
+    readonly COLOR_YELLOW=''
+    readonly COLOR_BLUE=''
+    readonly COLOR_MAGENTA=''
+    readonly COLOR_CYAN=''
+    readonly COLOR_WHITE=''
+    readonly COLOR_BRED=''
+    readonly COLOR_BGREEN=''
+    readonly COLOR_BYELLOW=''
+    readonly COLOR_BBLUE=''
+    readonly COLOR_BMAGENTA=''
+    readonly COLOR_BCYAN=''
+    readonly COLOR_BWHITE=''
+fi
+
+# ============================================================================
 # Визначення системи та архітектури
 # ============================================================================
 
@@ -78,7 +123,31 @@ init_directories
 # ============================================================================
 
 print_error() {
-    echo "ПОМИЛКА: $*" >&2
+    echo -e "${COLOR_BRED}[!] ПОМИЛКА:${COLOR_RESET} $*" >&2
+}
+
+print_success() {
+    echo -e "${COLOR_BGREEN}[+]${COLOR_RESET} $*"
+}
+
+print_info() {
+    echo -e "${COLOR_BCYAN}[i]${COLOR_RESET} $*"
+}
+
+print_warning() {
+    echo -e "${COLOR_BYELLOW}[!]${COLOR_RESET} $*"
+}
+
+print_step() {
+    echo -e "${COLOR_BBLUE}>>${COLOR_RESET} $*"
+}
+
+print_header() {
+    echo ""
+    echo -e "${COLOR_BOLD}${COLOR_BMAGENTA}===============================================${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}  $*${COLOR_RESET}"
+    echo -e "${COLOR_BOLD}${COLOR_BMAGENTA}===============================================${COLOR_RESET}"
+    echo ""
 }
 
 cleanup_temp_files() {
@@ -99,32 +168,49 @@ compute_sha256() {
     fi
 }
 
+show_spinner() {
+    local pid=$1
+    local message=$2
+    local spinstr='|/-\'
+    local i=0
 
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr:i++%${#spinstr}:1}
+        printf "\r${COLOR_BCYAN}%s${COLOR_RESET} %s" "$temp" "$message"
+        sleep 0.1
+    done
+    printf "\r"
+}
 # ============================================================================
 # Функції для виводу інформації
 # ============================================================================
 
 show_usage() {
-    cat <<-'EOF'
-	Використання: укр <команда> [програма] [версія]
-
-	Команди:
-	  встановити       <програма> [версія]
-	  видалити         <програма> [версія]
-	  використовувати  <програма> <версія>
-	  використовується [програма]
-	  встановлені      [програма]
-	  доступні         [програма]
-
-	Приклади:
-	  укр встановити ціль
-	  укр встановити мавка 0.123.0
-	EOF
+    echo ""
+    echo -e "${COLOR_BOLD}${COLOR_BMAGENTA}УКР${COLOR_RESET} ${COLOR_DIM}v${UKR_VERSION}${COLOR_RESET} - Менеджер версій програм"
+    echo ""
+    echo -e "${COLOR_BOLD}Використання:${COLOR_RESET}"
+    echo -e "  ${COLOR_BCYAN}укр${COLOR_RESET} ${COLOR_YELLOW}<команда>${COLOR_RESET} ${COLOR_DIM}[програма] [версія]${COLOR_RESET}"
+    echo ""
+    echo -e "${COLOR_BOLD}Команди:${COLOR_RESET}"
+    echo -e "  ${COLOR_BGREEN}встановити${COLOR_RESET}       ${COLOR_DIM}<програма> [версія]${COLOR_RESET}  Встановити програму"
+    echo -e "  ${COLOR_BRED}видалити${COLOR_RESET}          ${COLOR_DIM}<програма> [версія]${COLOR_RESET}  Видалити програму"
+    echo -e "  ${COLOR_BBLUE}використовувати${COLOR_RESET}   ${COLOR_DIM}<програма> <версія>${COLOR_RESET}  Переключитися на версію"
+    echo -e "  ${COLOR_BCYAN}використовується${COLOR_RESET}  ${COLOR_DIM}[програма]${COLOR_RESET}           Показати поточну версію"
+    echo -e "  ${COLOR_BMAGENTA}встановлені${COLOR_RESET}       ${COLOR_DIM}[програма]${COLOR_RESET}           Список встановлених"
+    echo -e "  ${COLOR_BYELLOW}доступні${COLOR_RESET}          ${COLOR_DIM}[програма]${COLOR_RESET}           Список доступних"
+    echo -e "  ${COLOR_BWHITE}ініціалізувати${COLOR_RESET}                         Налаштувати shell"
+    echo ""
+    echo -e "${COLOR_BOLD}Приклади:${COLOR_RESET}"
+    echo -e "  ${COLOR_DIM}# Встановити останню версію${COLOR_RESET}"
+    echo -e "  ${COLOR_BCYAN}укр${COLOR_RESET} встановити ціль"
+    echo ""
+    echo -e "  ${COLOR_DIM}# Встановити конкретну версію${COLOR_RESET}"
+    echo -e "  ${COLOR_BCYAN}укр${COLOR_RESET} встановити мавка 0.123.0"
+    echo ""
 }
 
 show_info() {
-    echo "укр $UKR_VERSION"
-    echo ""
     show_usage
     exit 0
 }
@@ -281,7 +367,7 @@ verify_signature_and_checksum() {
     local expected_hash
     local file_hash
 
-    echo "- Перевіряємо підпис..."
+    print_step "Перевіряємо цифровий підпис..."
 
     gpg_temp_dir=$(mktemp -d)
     chmod 700 "$gpg_temp_dir"
@@ -300,19 +386,23 @@ verify_signature_and_checksum() {
         return 1
     fi
 
+    print_success "Підпис перевірено"
+
+    print_step "Перевіряємо контрольну суму..."
+
     checksum_line=$(gpg --homedir "$gpg_temp_dir" --decrypt "$checksum_file" 2>/dev/null | grep "$filename")
     expected_hash=$(echo "$checksum_line" | awk '{print $1}')
     file_hash=$(compute_sha256 "$archive_file")
 
     if [[ "$expected_hash" != "$file_hash" ]]; then
         print_error "Контрольна сума не збігається!"
-        echo "  Очікувалась: $expected_hash" >&2
-        echo "  Отримана:    $file_hash" >&2
+        echo -e "  ${COLOR_DIM}Очікувалась:${COLOR_RESET} ${COLOR_YELLOW}$expected_hash${COLOR_RESET}" >&2
+        echo -e "  ${COLOR_DIM}Отримана:${COLOR_RESET}    ${COLOR_RED}$file_hash${COLOR_RESET}" >&2
         cleanup_temp_files "$gpg_temp_dir"
         return 1
     fi
 
-    echo "- Контрольна сума перевірена."
+    print_success "Контрольна сума перевірена"
     cleanup_temp_files "$gpg_temp_dir"
 
     return 0
@@ -327,13 +417,22 @@ download_file() {
     local output_file="$2"
     local description="$3"
 
-    echo "- Завантажуємо $description з $url"
+    print_step "Завантажуємо $description..."
 
-    if ! curl --progress-bar -fSL "$url" -o "$output_file"; then
+    if ! curl --progress-bar -fSL "$url" -o "$output_file" 2>&1 | \
+        while IFS= read -r line; do
+            if [[ "$line" =~ ([0-9]+\.[0-9]+)% ]]; then
+                local percent="${BASH_REMATCH[1]}"
+                printf "\r  ${COLOR_BCYAN}▓${COLOR_RESET} Прогрес: ${COLOR_BGREEN}%s%%${COLOR_RESET}" "$percent"
+            fi
+        done; then
+        printf "\r"
         print_error "Не вдалося завантажити $description"
         return 1
     fi
 
+    printf "\r"
+    print_success "Завантажено $description"
     return 0
 }
 
@@ -341,13 +440,14 @@ extract_archive() {
     local archive_file="$1"
     local target_dir="$2"
 
-    echo "- Розпаковуємо..."
+    print_step "Розпаковуємо архів..."
 
-    if ! tar -xJf "$archive_file" -C "$target_dir"; then
+    if ! tar -xJf "$archive_file" -C "$target_dir" 2>&1; then
         print_error "Не вдалося розпакувати архів."
         return 1
     fi
 
+    print_success "Архів розпаковано"
     return 0
 }
 
@@ -393,7 +493,7 @@ cmd_install() {
 
     # Determine version to install
     if [[ -z "$version" ]]; then
-        echo "Версію не задано. Отримуємо останню доступну версію..."
+        print_info "Версію не задано. Отримуємо останню доступну версію..."
         version=$(get_latest_version "$program")
 
         if [[ -z "$version" ]]; then
@@ -401,14 +501,14 @@ cmd_install() {
             exit 1
         fi
 
-        echo "Остання доступна версія: $version"
+        print_success "Остання доступна версія: ${COLOR_BWHITE}$version${COLOR_RESET}"
     fi
 
     # Check if already installed
     target_dir=$(get_installed_dir "$program" "$version")
 
     if [[ -d "$target_dir" ]]; then
-        echo "Програму '$program' версії $version вже встановлено."
+        print_warning "Програму ${COLOR_BWHITE}$program${COLOR_RESET} версії ${COLOR_BWHITE}$version${COLOR_RESET} вже встановлено."
         return 0
     fi
 
@@ -425,7 +525,7 @@ cmd_install() {
     url="${base_url}/${version}/${filename}"
     checksum_url="${url}.sha256.signed"
 
-    echo "Встановлюємо $program $version:"
+    print_header "Встановлення ${COLOR_BWHITE}$program${COLOR_RESET} ${COLOR_BGREEN}$version${COLOR_RESET}"
 
     # Download archive
     if ! download_file "$url" "$tmpfile" "архів"; then
@@ -434,12 +534,13 @@ cmd_install() {
     fi
 
     # Download checksum
-    echo "- Завантажуємо контрольну суму з $checksum_url"
-    if ! curl --silent -fSL "$checksum_url" -o "$tmpchecksum"; then
-        print_error "Не вдалося завантажити файл .sha256.signed"
+    print_step "Завантажуємо контрольну суму..."
+    if ! curl --silent -fSL "$checksum_url" -o "$tmpchecksum" 2>&1; then
+        print_error "Не вдалося завантажити файл контрольної суми"
         cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
         exit 1
     fi
+    print_success "Контрольну суму завантажено"
 
     # Verify signature and checksum
     if ! verify_signature_and_checksum "$program" "$version" "$tmpfile" "$tmpchecksum" "$filename"; then
@@ -454,6 +555,7 @@ cmd_install() {
     fi
 
     # Find and move extracted directory
+    print_step "Встановлюємо файли..."
     if ! extracted_dir=$(find_extracted_directory "$tmpdir"); then
         cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
         exit 1
@@ -464,10 +566,14 @@ cmd_install() {
     # Cleanup
     cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
 
-    echo "- Встановлено в $target_dir"
+    print_success "Файли встановлено в ${COLOR_DIM}$target_dir${COLOR_RESET}"
 
     # Automatically use this version
+    echo ""
     cmd_use "$program" "$version"
+
+    echo ""
+    print_header "${COLOR_BGREEN}Встановлення завершено!${COLOR_RESET}"
 }
 
 cmd_use() {
@@ -488,7 +594,7 @@ cmd_use() {
 
     ln -sfn "$target_dir" "$link_path"
 
-    echo "Програма $program тепер використовує версію $version."
+    print_success "Програма ${COLOR_BWHITE}$program${COLOR_RESET} тепер використовує версію ${COLOR_BGREEN}$version${COLOR_RESET}"
 }
 
 cmd_current() {
@@ -513,9 +619,53 @@ cmd_list_installed() {
     local program="$1"
 
     if [[ -z "$program" ]]; then
-        list_installed_programs
+        local programs
+        programs=($(list_installed_programs))
+
+        if [[ ${#programs[@]} -eq 0 ]]; then
+            print_info "Немає встановлених програм"
+            return 0
+        fi
+
+        echo ""
+        echo -e "${COLOR_BOLD}Встановлені програми:${COLOR_RESET}"
+        echo ""
+
+        for prog in "${programs[@]}"; do
+            local current_ver
+            current_ver=$(cmd_current "$prog")
+
+            if [[ -n "$current_ver" ]]; then
+                echo -e "  ${COLOR_BGREEN}*${COLOR_RESET} ${COLOR_BWHITE}$prog${COLOR_RESET} ${COLOR_DIM}(поточна: $current_ver)${COLOR_RESET}"
+            else
+                echo -e "  ${COLOR_DIM}-${COLOR_RESET} ${COLOR_WHITE}$prog${COLOR_RESET}"
+            fi
+        done
+        echo ""
     else
-        list_installed_versions "$program"
+        local versions
+        versions=($(list_installed_versions "$program"))
+
+        if [[ ${#versions[@]} -eq 0 ]]; then
+            print_info "Немає встановлених версій для ${COLOR_BWHITE}$program${COLOR_RESET}"
+            return 0
+        fi
+
+        local current_ver
+        current_ver=$(cmd_current "$program")
+
+        echo ""
+        echo -e "${COLOR_BOLD}Встановлені версії ${COLOR_BWHITE}$program${COLOR_RESET}:"
+        echo ""
+
+        for ver in "${versions[@]}"; do
+            if [[ "$ver" == "$current_ver" ]]; then
+                echo -e "  ${COLOR_BGREEN}*${COLOR_RESET} ${COLOR_BGREEN}$ver${COLOR_RESET} ${COLOR_DIM}(поточна)${COLOR_RESET}"
+            else
+                echo -e "  ${COLOR_DIM}-${COLOR_RESET} ${COLOR_WHITE}$ver${COLOR_RESET}"
+            fi
+        done
+        echo ""
     fi
 }
 
@@ -523,9 +673,39 @@ cmd_list_available() {
     local program="$1"
 
     if [[ -z "$program" ]]; then
-        list_all_programs
+        local programs
+        programs=($(list_all_programs))
+
+        if [[ ${#programs[@]} -eq 0 ]]; then
+            print_info "Немає доступних програм"
+            return 0
+        fi
+
+        echo ""
+        echo -e "${COLOR_BOLD}Доступні програми:${COLOR_RESET}"
+        echo ""
+
+        for prog in "${programs[@]}"; do
+            echo -e "  ${COLOR_BCYAN}>>${COLOR_RESET} ${COLOR_BWHITE}$prog${COLOR_RESET}"
+        done
+        echo ""
     else
-        list_available_versions "$program"
+        local versions
+        versions=$(list_available_versions "$program")
+
+        if [[ -z "$versions" ]]; then
+            print_info "Немає доступних версій для ${COLOR_BWHITE}$program${COLOR_RESET}"
+            return 0
+        fi
+
+        echo ""
+        echo -e "${COLOR_BOLD}Доступні версії ${COLOR_BWHITE}$program${COLOR_RESET}:"
+        echo ""
+
+        while IFS= read -r ver; do
+            echo -e "  ${COLOR_BCYAN}>>${COLOR_RESET} ${COLOR_WHITE}$ver${COLOR_RESET}"
+        done <<< "$versions"
+        echo ""
     fi
 }
 
@@ -534,7 +714,7 @@ cmd_init_shells() {
     local fish_rc="$HOME/.config/fish/config.fish"
     local updated=0
 
-    echo "Додаємо PATH..."
+    print_header "Ініціалізація shell"
 
     if [[ -f "$bash_rc" ]] && ! grep -q '.укр/env.bash' "$bash_rc"; then
         {
@@ -542,7 +722,7 @@ cmd_init_shells() {
             echo '. "$HOME/.укр/env.bash"'
             echo ''
         } >> "$bash_rc"
-        echo "  -> Додано в $bash_rc"
+        print_success "Додано в ${COLOR_DIM}$bash_rc${COLOR_RESET}"
         updated=1
     fi
 
@@ -552,14 +732,21 @@ cmd_init_shells() {
             echo 'source "$HOME/.укр/env.fish"'
             echo ''
         } >> "$fish_rc"
-        echo "  -> Додано в $fish_rc"
+        print_success "Додано в ${COLOR_DIM}$fish_rc${COLOR_RESET}"
         updated=1
     fi
 
+    echo ""
     if [[ $updated -eq 0 ]]; then
-        echo "Ініціалізацію завершено. Жоден файл конфігурації shell не було змінено."
+        print_info "Ініціалізацію завершено. Жоден файл конфігурації shell не було змінено."
     else
-        echo "Ініціалізацію завершено. Перезапустіть ваш shell або виконайте source на файли вище."
+        print_success "Ініціалізацію завершено!"
+        echo ""
+        print_info "Перезапустіть ваш shell або виконайте:"
+        echo ""
+        echo -e "  ${COLOR_DIM}source ~/.bashrc${COLOR_RESET}  ${COLOR_DIM}# для bash${COLOR_RESET}"
+        echo -e "  ${COLOR_DIM}source ~/.config/fish/config.fish${COLOR_RESET}  ${COLOR_DIM}# для fish${COLOR_RESET}"
+        echo ""
     fi
 }
 
@@ -582,52 +769,62 @@ cmd_delete() {
         target_dir=$(get_installed_dir "$program" "$version")
 
         if [[ ! -d "$target_dir" ]]; then
-            print_error "Версія $version для $program не знайдена."
+            print_error "Версія ${COLOR_BWHITE}$version${COLOR_RESET} для ${COLOR_BWHITE}$program${COLOR_RESET} не знайдена."
             exit 1
         fi
 
         if [[ "$force" != "--force" ]]; then
-            echo -n "Ви дійсно хочете видалити $program $version? [т/Н] "
+            echo ""
+            print_warning "Ви дійсно хочете видалити ${COLOR_BWHITE}$program${COLOR_RESET} ${COLOR_BWHITE}$version${COLOR_RESET}?"
+            echo -n "  Підтвердіть [т/Н]: "
             read -r confirm
 
             if [[ "$confirm" != "т" && "$confirm" != "Т" ]]; then
-                echo "Скасовано."
+                echo ""
+                print_info "Скасовано."
                 exit 0
             fi
         fi
 
+        echo ""
         rm -rf "$target_dir"
-        echo "Видалено $program $version."
+        print_success "Видалено ${COLOR_BWHITE}$program${COLOR_RESET} ${COLOR_BWHITE}$version${COLOR_RESET}"
 
         # Clean up current symlink if it pointed to the deleted version
         link_path=$(get_current_link_path "$program")
 
         if [[ -L "$link_path" && "$(readlink "$link_path")" == "$target_dir" ]]; then
             rm -f "$link_path"
-            echo "Поточне посилання для $program видалено."
+            print_info "Поточне посилання видалено"
         fi
+        echo ""
     else
         # Delete entire program
         target_dir="$UKR_INSTALLED_PROGRAMS_DIR/$program"
 
         if [[ ! -d "$target_dir" ]]; then
-            print_error "Програма $program не знайдена."
+            print_error "Програма ${COLOR_BWHITE}$program${COLOR_RESET} не знайдена."
             exit 1
         fi
 
         if [[ "$force" != "--force" ]]; then
-            echo -n "Ви дійсно хочете повністю видалити $program і всі її версії? [т/Н] "
+            echo ""
+            print_warning "Ви дійсно хочете повністю видалити ${COLOR_BWHITE}$program${COLOR_RESET} і всі її версії?"
+            echo -n "  Підтвердіть [т/Н]: "
             read -r confirm
 
             if [[ "$confirm" != "т" && "$confirm" != "Т" ]]; then
-                echo "Скасовано."
+                echo ""
+                print_info "Скасовано."
                 exit 0
             fi
         fi
 
+        echo ""
         rm -rf "$target_dir"
         rm -f "$(get_current_link_path "$program")"
-        echo "Вся програма $program видалена разом з версіями і поточним посиланням."
+        print_success "Вся програма ${COLOR_BWHITE}$program${COLOR_RESET} видалена разом з усіма версіями"
+        echo ""
     fi
 }
 
@@ -637,7 +834,6 @@ cmd_delete() {
 
 main() {
     local command="$1"
-
 
     case "$command" in
         встановити)
@@ -666,7 +862,12 @@ main() {
                 show_usage
                 exit 1
             fi
-            cmd_current "$2"
+            version=$(cmd_current "$2")
+            if [[ -n "$version" ]]; then
+                echo -e "${COLOR_BWHITE}$2${COLOR_RESET} ${COLOR_DIM}->${COLOR_RESET} ${COLOR_BGREEN}$version${COLOR_RESET}"
+            else
+                print_warning "Програма ${COLOR_BWHITE}$2${COLOR_RESET} не активна"
+            fi
             ;;
         встановлені)
             cmd_list_installed "$2"
@@ -676,6 +877,28 @@ main() {
             ;;
         ініціалізувати)
             cmd_init_shells
+            ;;
+        # Hidden commands for autocompletion (no styling)
+        --raw-programs|програми)
+            list_all_programs
+            ;;
+        --raw-installed)
+            list_installed_programs
+            ;;
+        --raw-installed-versions)
+            if [[ -n "$2" ]]; then
+                list_installed_versions "$2"
+            fi
+            ;;
+        --raw-available-versions)
+            if [[ -n "$2" ]]; then
+                list_available_versions "$2"
+            fi
+            ;;
+        --raw-current)
+            if [[ -n "$2" ]]; then
+                cmd_current "$2"
+            fi
             ;;
         *)
             show_info
