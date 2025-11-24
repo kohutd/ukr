@@ -187,7 +187,7 @@ show_spinner() {
 
 show_usage() {
     echo ""
-    echo -e "${COLOR_BOLD}укр${COLOR_RESET} ${COLOR_DIM}${UKR_VERSION}${COLOR_RESET} - Встановлювач програм"
+    echo -e "${COLOR_BOLD}укр${COLOR_RESET} ${COLOR_DIM}${UKR_VERSION}${COLOR_RESET} - Керівник програм"
     echo ""
     echo -e "${COLOR_BOLD}Використання:${COLOR_RESET}"
     echo -e "  укр ${COLOR_DIM}<команда> [програма] [версія]${COLOR_RESET}"
