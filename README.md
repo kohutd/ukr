@@ -5,7 +5,7 @@
 ## Встановлення
 
 ```
-curl -o- https://raw.githubusercontent.com/kohutd/ukr/main/install.bash | bash
+curl -o- https://raw.githubusercontent.com/kohutd/ukr/main/встановити.bash | bash
 ```
 
 ## Використання
