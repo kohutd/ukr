@@ -1,402 +1,686 @@
 #!/usr/bin/env bash
 
-UKR_VERSION="0.3.0"
-UKR_DIR="$HOME/.укр"
-UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
-UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
-UKR_CURRENT_LINKS="$UKR_PROGRAMS_DIR/поточні"
-UKR_PROGRAMS_META="$UKR_DIR/програми"
+set -eo pipefail
 
-UKR_OS=$(uname -s)
-case "$UKR_OS" in
-    Linux)
-        UKR_OS="лінукс"
-        ;;
-    Darwin)
-        UKR_OS="макос"
-        ;;
-    CYGWIN* | MINGW* | MSYS*)
-        UKR_OS="віндовс"
-        ;;
-    *)
-        echo "Операційна система не підтримується: $UKR_OS"
-        exit 1
-        ;;
-esac
+# ============================================================================
+# Константи та глобальні змінні
+# ============================================================================
 
-UKR_ARCH=$(uname -m)
-case "$UKR_ARCH" in
-    x86_64 | amd64)
-        UKR_ARCH="ікс86_64"
-        ;;
-    aarch64 | arm64)
-        UKR_ARCH="аарч64"
-        ;;
-    i386 | i686)
-        UKR_ARCH="ікс86"
-        ;;
-    *)
-        echo "Архітектура не підтримується: $UKR_ARCH"
-        exit 1
-        ;;
-esac
+readonly UKR_VERSION="0.3.0"
+readonly UKR_DIR="$HOME/.укр"
+readonly UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
+readonly UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
+readonly UKR_CURRENT_LINKS="$UKR_PROGRAMS_DIR/поточні"
+readonly UKR_PROGRAMS_META="$UKR_DIR/програми"
 
-mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR"
-mkdir -p "$UKR_CURRENT_LINKS"
+# ============================================================================
+# Визначення системи та архітектури
+# ============================================================================
 
-usage() {
-    echo "Використання: укр <команда> [програма] [версія]"
-    echo ""
-    echo "Команди:"
-    echo "  встановити       <програма> [версія]"
-    echo "  видалити         <програма> [версія]"
-    echo "  використовувати  <програма> <версія>"
-    echo "  використовується [програма]"
-    echo "  встановлені      [програма]"
-    echo "  доступні         [програма]"
-    echo ""
-    echo "Приклади:"
-    echo "  укр встановити ціль"
-    echo "  укр встановити мавка 0.123.0"
+detect_os() {
+    local os
+    os=$(uname -s)
+
+    case "$os" in
+        Linux)
+            echo "лінукс"
+            ;;
+        Darwin)
+            echo "макос"
+            ;;
+        CYGWIN* | MINGW* | MSYS*)
+            echo "віндовс"
+            ;;
+        *)
+            echo "Операційна система не підтримується: $os" >&2
+            exit 1
+            ;;
+    esac
 }
 
-usage_1() {
-    usage
-    exit 1
+detect_arch() {
+    local arch
+    arch=$(uname -m)
+
+    case "$arch" in
+        x86_64 | amd64)
+            echo "ікс86_64"
+            ;;
+        aarch64 | arm64)
+            echo "аарч64"
+            ;;
+        i386 | i686)
+            echo "ікс86"
+            ;;
+        *)
+            echo "Архітектура не підтримується: $arch" >&2
+            exit 1
+            ;;
+    esac
 }
 
-info() {
+readonly UKR_OS=$(detect_os)
+readonly UKR_ARCH=$(detect_arch)
+
+# ============================================================================
+# Ініціалізація директорій
+# ============================================================================
+
+init_directories() {
+    mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR"
+    mkdir -p "$UKR_CURRENT_LINKS"
+}
+
+init_directories
+
+# ============================================================================
+# Допоміжні функції
+# ============================================================================
+
+print_error() {
+    echo "ПОМИЛКА: $*" >&2
+}
+
+cleanup_temp_files() {
+    local -a files=("$@")
+    rm -rf "${files[@]}" 2>/dev/null || true
+}
+
+compute_sha256() {
+    local file="$1"
+
+    if command -v sha256sum &>/dev/null; then
+        sha256sum "$file" | awk '{print $1}'
+    elif command -v shasum &>/dev/null; then
+        shasum -a 256 "$file" | awk '{print $1}'
+    else
+        print_error "Не знайдено утиліту для обчислення SHA256"
+        return 1
+    fi
+}
+
+
+# ============================================================================
+# Функції для виводу інформації
+# ============================================================================
+
+show_usage() {
+    cat <<-'EOF'
+	Використання: укр <команда> [програма] [версія]
+
+	Команди:
+	  встановити       <програма> [версія]
+	  видалити         <програма> [версія]
+	  використовувати  <програма> <версія>
+	  використовується [програма]
+	  встановлені      [програма]
+	  доступні         [програма]
+
+	Приклади:
+	  укр встановити ціль
+	  укр встановити мавка 0.123.0
+	EOF
+}
+
+show_info() {
     echo "укр $UKR_VERSION"
     echo ""
-    usage
+    show_usage
     exit 0
 }
 
-install_version() {
-    PROGRAM="$1"
-    VERSION="$2"
-    PROGRAM_META_DIR="$UKR_PROGRAMS_META/$PROGRAM"
-    URL_FILE="$PROGRAM_META_DIR/url.txt"
-    KEY_FILE="$PROGRAM_META_DIR/public_key.asc"
+# ============================================================================
+# Функції для роботи з метаданими програм
+# ============================================================================
 
-    if [ ! -f "$URL_FILE" ] || [ ! -f "$KEY_FILE" ]; then
-        echo "ПОМИЛКА: Програму '$PROGRAM' не знайдено або метадані відсутні."
-        exit 1
-    fi
-
-    PROGRAM_BASE_URL=$(< "$URL_FILE")
-
-    if [ -z "$VERSION" ]; then
-        echo "Версію не задано. Отримуємо останню доступну версію..."
-        VERSION=$(list_available_versions "$PROGRAM" | tail -n 1)
-        if [ -z "$VERSION" ]; then
-            echo "ПОМИЛКА: Не вдалося отримати останню версію для '$PROGRAM'."
-            exit 1
-        fi
-        echo "Остання доступна версія: $VERSION"
-    fi
-
-    mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM"
-    TARGET_DIR="$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM/$VERSION"
-
-    if [ -d "$TARGET_DIR" ]; then
-        echo "Програму '$PROGRAM' версії $VERSION вже встановлено."
-        return
-    fi
-
-    TMPFILE=$(mktemp)
-    TMPCHECKSUM=$(mktemp)
-    TMPDIR=$(mktemp -d)
-
-    FILENAME="${PROGRAM}-${VERSION}-${UKR_OS}-${UKR_ARCH}.tar.xz"
-    URL="${PROGRAM_BASE_URL}/${VERSION}/${FILENAME}"
-    CHECKSUM_URL="${URL}.sha256.signed"
-
-    echo "Встановлюємо $PROGRAM $VERSION:"
-    echo "- Завантажуємо з $URL"
-    if ! curl --progress-bar -fSL "$URL" -o "$TMPFILE"; then
-        echo "  ПОМИЛКА: Не вдалося завантажити $FILENAME"
-        rm -f "$TMPFILE" "$TMPCHECKSUM"
-        rm -rf "$TMPDIR"
-        exit 1
-    fi
-
-    echo "- Завантажуємо контрольну суму з $CHECKSUM_URL"
-    if ! curl --silent -fSL "$CHECKSUM_URL" -o "$TMPCHECKSUM"; then
-        echo "  ПОМИЛКА: Не вдалося завантажити файл .sha256.signed"
-        rm -f "$TMPFILE" "$TMPCHECKSUM"
-        rm -rf "$TMPDIR"
-        exit 1
-    fi
-
-    echo "- Перевіряємо підпис..."
-    GPG_TEMP_DIR=$(mktemp -d)
-    chmod 700 "$GPG_TEMP_DIR"
-
-    if ! gpg --homedir "$GPG_TEMP_DIR" --quiet --import "$KEY_FILE" &>/dev/null; then
-        echo "  ПОМИЛКА: Не вдалося імпортувати публічний ключ."
-        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
-        exit 1
-    fi
-
-    if ! gpg --homedir "$GPG_TEMP_DIR" --verify "$TMPCHECKSUM" &>/dev/null; then
-        echo "  ПОМИЛКА: Підпис недійсний або пошкоджений."
-        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
-        exit 1
-    fi
-
-    CHECKSUM_LINE=$(gpg --homedir "$GPG_TEMP_DIR" --decrypt "$TMPCHECKSUM" 2>/dev/null | grep "$FILENAME")
-    EXPECTED_HASH=$(echo "$CHECKSUM_LINE" | awk '{print $1}')
-    FILE_HASH=$(sha256sum "$TMPFILE" | awk '{print $1}')
-
-    if [ "$EXPECTED_HASH" != "$FILE_HASH" ]; then
-        echo "  ПОМИЛКА: Контрольна сума не збігається!"
-        echo "  Очікувалась: $EXPECTED_HASH"
-        echo "  Отримана:    $FILE_HASH"
-        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
-        exit 1
-    fi
-
-    echo "- Контрольна сума перевірена."
-
-    echo "- Розпаковуємо..."
-    if ! tar -xJf "$TMPFILE" -C "$TMPDIR"; then
-        echo "  ПОМИЛКА: Не вдалося розпакувати архів."
-        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
-        exit 1
-    fi
-
-    EXTRACTED_DIR=$(find "$TMPDIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)
-    if [ -z "$EXTRACTED_DIR" ]; then
-        echo "  ПОМИЛКА: Не вдалося знайти розпаковану директорію."
-        rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
-        exit 1
-    fi
-
-    mv "$EXTRACTED_DIR" "$TARGET_DIR"
-
-    rm -rf "$GPG_TEMP_DIR" "$TMPFILE" "$TMPCHECKSUM" "$TMPDIR"
-
-    echo "- Встановлено в $TARGET_DIR"
-
-    use_version "$PROGRAM" "$VERSION"
+get_program_meta_dir() {
+    local program="$1"
+    echo "$UKR_PROGRAMS_META/$program"
 }
 
-use_version() {
-    PROGRAM="$1"
-    VERSION="$2"
-    TARGET_DIR="$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM/$VERSION"
-    LINK_PATH="$UKR_CURRENT_LINKS/$PROGRAM"
+validate_program_meta() {
+    local program="$1"
+    local meta_dir
+    local url_file
+    local key_file
 
-    if [ ! -d "$TARGET_DIR" ]; then
-        echo "ПОМИЛКА: Версія $VERSION для $PROGRAM не встановлена."
-        exit 1
+    meta_dir=$(get_program_meta_dir "$program")
+    url_file="$meta_dir/url.txt"
+    key_file="$meta_dir/public_key.asc"
+
+    if [[ ! -f "$url_file" || ! -f "$key_file" ]]; then
+        print_error "Програму '$program' не знайдено або метадані відсутні."
+        return 1
     fi
 
-    mkdir -p "$UKR_CURRENT_LINKS"
-
-    ln -sfn "$TARGET_DIR" "$LINK_PATH"
-
-    echo "Програма $PROGRAM тепер використовує версію $VERSION."
+    return 0
 }
 
-current_version() {
-    PROGRAM="$1"
-    LINK_PATH="$UKR_CURRENT_LINKS/$PROGRAM"
+get_program_base_url() {
+    local program="$1"
+    local meta_dir
+    local url_file
 
-    if [ ! -L "$LINK_PATH" ]; then
-        return
-    fi
+    meta_dir=$(get_program_meta_dir "$program")
+    url_file="$meta_dir/url.txt"
 
-    TARGET_PATH=$(readlink "$LINK_PATH")
-    VERSION=$(basename "$TARGET_PATH")
-
-    echo "$VERSION"
+    cat "$url_file"
 }
 
-list_installed() {
-    if [ -z "$1" ]; then
-        if [ ! -d "$UKR_INSTALLED_PROGRAMS_DIR" ]; then
-            return
-        fi
+get_program_public_key() {
+    local program="$1"
+    local meta_dir
 
-        PROGRAMS=($(ls -1 "$UKR_INSTALLED_PROGRAMS_DIR"))
-        if [ ${#PROGRAMS[@]} -eq 0 ]; then
-            return
-        fi
+    meta_dir=$(get_program_meta_dir "$program")
+    echo "$meta_dir/public_key.asc"
+}
 
-        for prog in "${PROGRAMS[@]}"; do
-            echo "$prog"
-        done
-    else
-        PROGRAM="$1"
-        PROG_DIR="$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM"
+# ============================================================================
+# Функції для роботи з версіями
+# ============================================================================
 
-        if [ ! -d "$PROG_DIR" ]; then
-            return
-        fi
+get_installed_dir() {
+    local program="$1"
+    local version="$2"
+    echo "$UKR_INSTALLED_PROGRAMS_DIR/$program/$version"
+}
 
-        VERSIONS=($(ls -1 "$PROG_DIR"))
-        if [ ${#VERSIONS[@]} -eq 0 ]; then
-            return
-        fi
-
-        for ver in "${VERSIONS[@]}"; do
-            echo "$ver"
-        done
-    fi
+get_current_link_path() {
+    local program="$1"
+    echo "$UKR_CURRENT_LINKS/$program"
 }
 
 list_available_versions() {
-    PROGRAM="$1"
-    URL_FILE="$UKR_PROGRAMS_META/$PROGRAM/url.txt"
+    local program="$1"
+    local url_file
+    local base_url
+    local versions
 
-    if [ ! -f "$URL_FILE" ]; then
-        return
+    url_file="$UKR_PROGRAMS_META/$program/url.txt"
+
+    if [[ ! -f "$url_file" ]]; then
+        return 0
     fi
 
-    PROGRAM_BASE_URL=$(< "$URL_FILE")
+    base_url=$(cat "$url_file")
+    versions=$(curl -fsSL "$base_url/доступні-версії-$UKR_OS-$UKR_ARCH.txt" 2>/dev/null || echo "")
 
-    AV=$(curl -fsSL "$PROGRAM_BASE_URL/доступні-версії-$UKR_OS-$UKR_ARCH.txt" || echo "")
-    if [ "$AV" == "" ]
-    then
-        echo -en ""
-    elif [[ "$AV" != *$'\n' ]]; then
-        echo -en "$AV\n"
+    if [[ -z "$versions" ]]; then
+        return 0
+    fi
+
+    # Ensure output ends with newline
+    if [[ "$versions" != *$'\n' ]]; then
+        echo "$versions"
     else
-        echo -n "$AV"
+        echo -n "$versions"
     fi
 }
 
-init_shells() {
-    echo "Додаємо PATH..."
-
-    updated=0
-
-    BASH_RC="$HOME/.bashrc"
-    if [ -f "$BASH_RC" ] && ! grep -q '.укр/env.bash' "$BASH_RC"; then
-        echo '' >> "$BASH_RC"
-        echo '. "$HOME/.укр/env.bash"' >> "$BASH_RC"
-        echo '' >> "$BASH_RC"
-        echo "  -> Додано в $BASH_RC"
-        updated=1
-    fi
-
-    FISH_RC="$HOME/.config/fish/config.fish"
-    if [ -f "$FISH_RC" ] && ! grep -q '.укр/env.fish' "$FISH_RC"; then
-        echo '' >> "$FISH_RC"
-        echo 'source "$HOME/.укр/env.fish"' >> "$FISH_RC"
-        echo '' >> "$FISH_RC"
-        echo "  -> Додано в $FISH_RC"
-        updated=1
-    fi
-
-    if [ $updated -eq 0 ]; then
-      echo "Ініціалізацію завершено. Жоден файл конфігурації shell не було змінено."
-    else
-      echo "Ініціалізацію завершено. Перезапустіть ваш shell або виконайте source на файли вище."
-    fi
+get_latest_version() {
+    local program="$1"
+    list_available_versions "$program" | tail -n 1
 }
 
-delete_version() {
-    PROGRAM="$1"
-    VERSION="$2"
-    FORCE="$3"
-
-    if [ -z "$PROGRAM" ]; then
-        echo "ПОМИЛКА: Не вказано програму."
-        usage_1
+list_installed_programs() {
+    if [[ ! -d "$UKR_INSTALLED_PROGRAMS_DIR" ]]; then
+        return 0
     fi
 
-    if [ -n "$VERSION" ]; then
-        TARGET_DIR="$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM/$VERSION"
+    local programs
+    programs=($(ls -1 "$UKR_INSTALLED_PROGRAMS_DIR" 2>/dev/null || true))
 
-        if [ ! -d "$TARGET_DIR" ]; then
-            echo "ПОМИЛКА: Версія $VERSION для $PROGRAM не знайдена."
-            exit 1
-        fi
-
-        if [ "$FORCE" != "--force" ]; then
-            echo -n "Ви дійсно хочете видалити $PROGRAM $VERSION? [т/Н] "
-            read -r CONFIRM
-            if [[ "$CONFIRM" != "т" && "$CONFIRM" != "Т" ]]; then
-                echo "Скасовано."
-                exit 0
-            fi
-        fi
-
-        rm -rf "$TARGET_DIR"
-        echo "Видалено $PROGRAM $VERSION."
-
-        # Clean up current symlink if it pointed to the deleted version
-        LINK_PATH="$UKR_CURRENT_LINKS/$PROGRAM"
-        if [ -L "$LINK_PATH" ] && [ "$(readlink "$LINK_PATH")" = "$TARGET_DIR" ]; then
-            rm -f "$LINK_PATH"
-            echo "Поточне посилання для $PROGRAM видалено."
-        fi
-
-    else
-        TARGET_DIR="$UKR_INSTALLED_PROGRAMS_DIR/$PROGRAM"
-
-        if [ ! -d "$TARGET_DIR" ]; then
-            echo "ПОМИЛКА: Програма $PROGRAM не знайдена."
-            exit 1
-        fi
-
-        if [ "$FORCE" != "--force" ]; then
-            echo -n "Ви дійсно хочете повністю видалити $PROGRAM і всі її версії? [т/Н] "
-            read -r CONFIRM
-            if [[ "$CONFIRM" != "т" && "$CONFIRM" != "Т" ]]; then
-                echo "Скасовано."
-                exit 0
-            fi
-        fi
-
-        rm -rf "$TARGET_DIR"
-        rm -f "$UKR_CURRENT_LINKS/$PROGRAM"
-        echo "Вся програма $PROGRAM видалена разом з версіями і поточним посиланням."
+    if [[ ${#programs[@]} -eq 0 ]]; then
+        return 0
     fi
+
+    printf '%s\n' "${programs[@]}"
 }
 
-list_programs() {
+list_installed_versions() {
+    local program="$1"
+    local prog_dir="$UKR_INSTALLED_PROGRAMS_DIR/$program"
+
+    if [[ ! -d "$prog_dir" ]]; then
+        return 0
+    fi
+
+    local versions
+    versions=($(ls -1 "$prog_dir" 2>/dev/null || true))
+
+    if [[ ${#versions[@]} -eq 0 ]]; then
+        return 0
+    fi
+
+    printf '%s\n' "${versions[@]}"
+}
+
+list_all_programs() {
+    local prog_dir
+
     for prog_dir in "$UKR_PROGRAMS_META/"*; do
-        [ -d "$prog_dir" ] || continue
+        [[ -d "$prog_dir" ]] || continue
         basename "$prog_dir"
     done
 }
 
-case "$1" in
-    встановити)
-        [ -z "$2" ] && usage_1
-        install_version "$2" "$3"
-        ;;
-    видалити)
-        [ -z "$2" ] && usage_1
-        delete_version "$2" "$3" "$4"
-        ;;
-    використовувати)
-        [ -z "$2" ] && usage_1
-        [ -z "$3" ] && usage_1
-        use_version "$2" "$3"
-        ;;
-    використовується)
-        [ -z "$2" ] && usage_1
-        current_version "$2"
-        ;;
-    встановлені)
-        list_installed "$2"
-        ;;
-    доступні)
-        if [ -z "$2" ]; then
-            list_programs
-        else
-            list_available_versions "$2"
+# ============================================================================
+# Функції для перевірки підпису та контрольної суми
+# ============================================================================
+
+verify_signature_and_checksum() {
+    local program="$1"
+    local version="$2"
+    local archive_file="$3"
+    local checksum_file="$4"
+    local filename="$5"
+
+    local gpg_temp_dir
+    local key_file
+    local checksum_line
+    local expected_hash
+    local file_hash
+
+    echo "- Перевіряємо підпис..."
+
+    gpg_temp_dir=$(mktemp -d)
+    chmod 700 "$gpg_temp_dir"
+
+    key_file=$(get_program_public_key "$program")
+
+    if ! gpg --homedir "$gpg_temp_dir" --quiet --import "$key_file" &>/dev/null; then
+        print_error "Не вдалося імпортувати публічний ключ."
+        cleanup_temp_files "$gpg_temp_dir"
+        return 1
+    fi
+
+    if ! gpg --homedir "$gpg_temp_dir" --verify "$checksum_file" &>/dev/null; then
+        print_error "Підпис недійсний або пошкоджений."
+        cleanup_temp_files "$gpg_temp_dir"
+        return 1
+    fi
+
+    checksum_line=$(gpg --homedir "$gpg_temp_dir" --decrypt "$checksum_file" 2>/dev/null | grep "$filename")
+    expected_hash=$(echo "$checksum_line" | awk '{print $1}')
+    file_hash=$(compute_sha256 "$archive_file")
+
+    if [[ "$expected_hash" != "$file_hash" ]]; then
+        print_error "Контрольна сума не збігається!"
+        echo "  Очікувалась: $expected_hash" >&2
+        echo "  Отримана:    $file_hash" >&2
+        cleanup_temp_files "$gpg_temp_dir"
+        return 1
+    fi
+
+    echo "- Контрольна сума перевірена."
+    cleanup_temp_files "$gpg_temp_dir"
+
+    return 0
+}
+
+# ============================================================================
+# Функції для завантаження та розпакування
+# ============================================================================
+
+download_file() {
+    local url="$1"
+    local output_file="$2"
+    local description="$3"
+
+    echo "- Завантажуємо $description з $url"
+
+    if ! curl --progress-bar -fSL "$url" -o "$output_file"; then
+        print_error "Не вдалося завантажити $description"
+        return 1
+    fi
+
+    return 0
+}
+
+extract_archive() {
+    local archive_file="$1"
+    local target_dir="$2"
+
+    echo "- Розпаковуємо..."
+
+    if ! tar -xJf "$archive_file" -C "$target_dir"; then
+        print_error "Не вдалося розпакувати архів."
+        return 1
+    fi
+
+    return 0
+}
+
+find_extracted_directory() {
+    local temp_dir="$1"
+    local extracted_dir
+
+    extracted_dir=$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+
+    if [[ -z "$extracted_dir" ]]; then
+        print_error "Не вдалося знайти розпаковану директорію."
+        return 1
+    fi
+
+    echo "$extracted_dir"
+    return 0
+}
+
+
+# ============================================================================
+# Основні функції команд
+# ============================================================================
+
+cmd_install() {
+    local program="$1"
+    local version="$2"
+    local base_url
+    local target_dir
+    local tmpfile
+    local tmpchecksum
+    local tmpdir
+    local filename
+    local url
+    local checksum_url
+    local extracted_dir
+
+    # Validate program metadata
+    if ! validate_program_meta "$program"; then
+        exit 1
+    fi
+
+    base_url=$(get_program_base_url "$program")
+
+    # Determine version to install
+    if [[ -z "$version" ]]; then
+        echo "Версію не задано. Отримуємо останню доступну версію..."
+        version=$(get_latest_version "$program")
+
+        if [[ -z "$version" ]]; then
+            print_error "Не вдалося отримати останню версію для '$program'."
+            exit 1
         fi
-        ;;
-    ініціалізувати)
-        init_shells
-        ;;
-    *)
-        info
-        ;;
-esac
+
+        echo "Остання доступна версія: $version"
+    fi
+
+    # Check if already installed
+    target_dir=$(get_installed_dir "$program" "$version")
+
+    if [[ -d "$target_dir" ]]; then
+        echo "Програму '$program' версії $version вже встановлено."
+        return 0
+    fi
+
+    # Prepare directories
+    mkdir -p "$(dirname "$target_dir")"
+
+    # Create temporary files
+    tmpfile=$(mktemp)
+    tmpchecksum=$(mktemp)
+    tmpdir=$(mktemp -d)
+
+    # Construct URLs
+    filename="${program}-${version}-${UKR_OS}-${UKR_ARCH}.tar.xz"
+    url="${base_url}/${version}/${filename}"
+    checksum_url="${url}.sha256.signed"
+
+    echo "Встановлюємо $program $version:"
+
+    # Download archive
+    if ! download_file "$url" "$tmpfile" "архів"; then
+        cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
+        exit 1
+    fi
+
+    # Download checksum
+    echo "- Завантажуємо контрольну суму з $checksum_url"
+    if ! curl --silent -fSL "$checksum_url" -o "$tmpchecksum"; then
+        print_error "Не вдалося завантажити файл .sha256.signed"
+        cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
+        exit 1
+    fi
+
+    # Verify signature and checksum
+    if ! verify_signature_and_checksum "$program" "$version" "$tmpfile" "$tmpchecksum" "$filename"; then
+        cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
+        exit 1
+    fi
+
+    # Extract archive
+    if ! extract_archive "$tmpfile" "$tmpdir"; then
+        cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
+        exit 1
+    fi
+
+    # Find and move extracted directory
+    if ! extracted_dir=$(find_extracted_directory "$tmpdir"); then
+        cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
+        exit 1
+    fi
+
+    mv "$extracted_dir" "$target_dir"
+
+    # Cleanup
+    cleanup_temp_files "$tmpfile" "$tmpchecksum" "$tmpdir"
+
+    echo "- Встановлено в $target_dir"
+
+    # Automatically use this version
+    cmd_use "$program" "$version"
+}
+
+cmd_use() {
+    local program="$1"
+    local version="$2"
+    local target_dir
+    local link_path
+
+    target_dir=$(get_installed_dir "$program" "$version")
+
+    if [[ ! -d "$target_dir" ]]; then
+        print_error "Версія $version для $program не встановлена."
+        exit 1
+    fi
+
+    link_path=$(get_current_link_path "$program")
+    mkdir -p "$(dirname "$link_path")"
+
+    ln -sfn "$target_dir" "$link_path"
+
+    echo "Програма $program тепер використовує версію $version."
+}
+
+cmd_current() {
+    local program="$1"
+    local link_path
+    local target_path
+    local version
+
+    link_path=$(get_current_link_path "$program")
+
+    if [[ ! -L "$link_path" ]]; then
+        return 0
+    fi
+
+    target_path=$(readlink "$link_path")
+    version=$(basename "$target_path")
+
+    echo "$version"
+}
+
+cmd_list_installed() {
+    local program="$1"
+
+    if [[ -z "$program" ]]; then
+        list_installed_programs
+    else
+        list_installed_versions "$program"
+    fi
+}
+
+cmd_list_available() {
+    local program="$1"
+
+    if [[ -z "$program" ]]; then
+        list_all_programs
+    else
+        list_available_versions "$program"
+    fi
+}
+
+cmd_init_shells() {
+    local bash_rc="$HOME/.bashrc"
+    local fish_rc="$HOME/.config/fish/config.fish"
+    local updated=0
+
+    echo "Додаємо PATH..."
+
+    if [[ -f "$bash_rc" ]] && ! grep -q '.укр/env.bash' "$bash_rc"; then
+        {
+            echo ''
+            echo '. "$HOME/.укр/env.bash"'
+            echo ''
+        } >> "$bash_rc"
+        echo "  -> Додано в $bash_rc"
+        updated=1
+    fi
+
+    if [[ -f "$fish_rc" ]] && ! grep -q '.укр/env.fish' "$fish_rc"; then
+        {
+            echo ''
+            echo 'source "$HOME/.укр/env.fish"'
+            echo ''
+        } >> "$fish_rc"
+        echo "  -> Додано в $fish_rc"
+        updated=1
+    fi
+
+    if [[ $updated -eq 0 ]]; then
+        echo "Ініціалізацію завершено. Жоден файл конфігурації shell не було змінено."
+    else
+        echo "Ініціалізацію завершено. Перезапустіть ваш shell або виконайте source на файли вище."
+    fi
+}
+
+cmd_delete() {
+    local program="$1"
+    local version="$2"
+    local force="$3"
+    local target_dir
+    local link_path
+    local confirm
+
+    if [[ -z "$program" ]]; then
+        print_error "Не вказано програму."
+        show_usage
+        exit 1
+    fi
+
+    if [[ -n "$version" ]]; then
+        # Delete specific version
+        target_dir=$(get_installed_dir "$program" "$version")
+
+        if [[ ! -d "$target_dir" ]]; then
+            print_error "Версія $version для $program не знайдена."
+            exit 1
+        fi
+
+        if [[ "$force" != "--force" ]]; then
+            echo -n "Ви дійсно хочете видалити $program $version? [т/Н] "
+            read -r confirm
+
+            if [[ "$confirm" != "т" && "$confirm" != "Т" ]]; then
+                echo "Скасовано."
+                exit 0
+            fi
+        fi
+
+        rm -rf "$target_dir"
+        echo "Видалено $program $version."
+
+        # Clean up current symlink if it pointed to the deleted version
+        link_path=$(get_current_link_path "$program")
+
+        if [[ -L "$link_path" && "$(readlink "$link_path")" == "$target_dir" ]]; then
+            rm -f "$link_path"
+            echo "Поточне посилання для $program видалено."
+        fi
+    else
+        # Delete entire program
+        target_dir="$UKR_INSTALLED_PROGRAMS_DIR/$program"
+
+        if [[ ! -d "$target_dir" ]]; then
+            print_error "Програма $program не знайдена."
+            exit 1
+        fi
+
+        if [[ "$force" != "--force" ]]; then
+            echo -n "Ви дійсно хочете повністю видалити $program і всі її версії? [т/Н] "
+            read -r confirm
+
+            if [[ "$confirm" != "т" && "$confirm" != "Т" ]]; then
+                echo "Скасовано."
+                exit 0
+            fi
+        fi
+
+        rm -rf "$target_dir"
+        rm -f "$(get_current_link_path "$program")"
+        echo "Вся програма $program видалена разом з версіями і поточним посиланням."
+    fi
+}
+
+# ============================================================================
+# Головна логіка програми
+# ============================================================================
+
+main() {
+    local command="$1"
+
+
+    case "$command" in
+        встановити)
+            if [[ -z "$2" ]]; then
+                show_usage
+                exit 1
+            fi
+            cmd_install "$2" "$3"
+            ;;
+        видалити)
+            if [[ -z "$2" ]]; then
+                show_usage
+                exit 1
+            fi
+            cmd_delete "$2" "$3" "$4"
+            ;;
+        використовувати)
+            if [[ -z "$2" || -z "$3" ]]; then
+                show_usage
+                exit 1
+            fi
+            cmd_use "$2" "$3"
+            ;;
+        використовується)
+            if [[ -z "$2" ]]; then
+                show_usage
+                exit 1
+            fi
+            cmd_current "$2"
+            ;;
+        встановлені)
+            cmd_list_installed "$2"
+            ;;
+        доступні)
+            cmd_list_available "$2"
+            ;;
+        ініціалізувати)
+            cmd_init_shells
+            ;;
+        *)
+            show_info
+            ;;
+    esac
+}
+
+main "$@"
