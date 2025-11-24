@@ -418,19 +418,11 @@ download_file() {
 
     print_step "Завантажуємо $description..."
 
-    if ! curl --progress-bar -fSL "$url" -o "$output_file" 2>&1 | \
-        while IFS= read -r line; do
-            if [[ "$line" =~ ([0-9]+\.[0-9]+)% ]]; then
-                local percent="${BASH_REMATCH[1]}"
-                printf "\r  ${COLOR_BCYAN}▓${COLOR_RESET} Прогрес: ${COLOR_BGREEN}%s%%${COLOR_RESET}" "$percent"
-            fi
-        done; then
-        printf "\r"
+    if ! curl -fSL --progress-bar "$url" -o "$output_file"; then
         print_error "Не вдалося завантажити $description"
         return 1
     fi
 
-    printf "\r"
     print_success "Завантажено $description"
     return 0
 }
