@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-UKR_VERSION="0.2.0"
+UKR_VERSION="0.3.0"
 UKR_DIR="$HOME/.укр"
 UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
 UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"
@@ -13,7 +13,7 @@ case "$UKR_OS" in
         UKR_OS="лінукс"
         ;;
     Darwin)
-        UKR_OS="дарвін"
+        UKR_OS="макос"
         ;;
     CYGWIN* | MINGW* | MSYS*)
         UKR_OS="віндовс"
@@ -45,14 +45,19 @@ mkdir -p "$UKR_INSTALLED_PROGRAMS_DIR"
 mkdir -p "$UKR_CURRENT_LINKS"
 
 usage() {
-    echo "Використання: укр встановити <програма> <версія>"
-    echo "                  використовувати <програма> <версія>"
-    echo "                  видалити <програма> <версія>"
-    echo "                  поточна <програма>"
-    echo "                  встановлені <програма>"
-    echo "                  доступні <програма>"
-    echo "                  програми"
-    echo "                  ініціалізувати"
+    echo "Використання: укр <команда> [програма] [версія]"
+    echo ""
+    echo "Команди:"
+    echo "  встановити       <програма> [версія]"
+    echo "  видалити         <програма> [версія]"
+    echo "  використовувати  <програма> <версія>"
+    echo "  використовується [програма]"
+    echo "  встановлені      [програма]"
+    echo "  доступні         [програма]"
+    echo ""
+    echo "Приклади:"
+    echo "  укр встановити ціль"
+    echo "  укр встановити мавка 0.123.0"
 }
 
 usage_1() {
@@ -365,12 +370,16 @@ case "$1" in
         [ -z "$2" ] && usage_1
         install_version "$2" "$3"
         ;;
+    видалити)
+        [ -z "$2" ] && usage_1
+        delete_version "$2" "$3" "$4"
+        ;;
     використовувати)
         [ -z "$2" ] && usage_1
         [ -z "$3" ] && usage_1
         use_version "$2" "$3"
         ;;
-    поточна)
+    використовується)
         [ -z "$2" ] && usage_1
         current_version "$2"
         ;;
@@ -378,18 +387,14 @@ case "$1" in
         list_installed "$2"
         ;;
     доступні)
-        [ -z "$2" ] && usage_1
-        list_available_versions "$2"
+        if [ -z "$2" ]; then
+            list_programs
+        else
+            list_available_versions "$2"
+        fi
         ;;
     ініціалізувати)
         init_shells
-        ;;
-    видалити)
-        [ -z "$2" ] && usage_1
-        delete_version "$2" "$3" "$4"
-        ;;
-    програми)
-        list_programs
         ;;
     *)
         info
