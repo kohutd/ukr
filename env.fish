@@ -4,6 +4,11 @@ for p in $HOME/.local/share/укр/поточні/*
             set -gx PATH "$p/bin" $PATH
         end
     end
+    if test -d "$p/програми"
+        if not contains -- "$p/програми" $PATH
+            set -gx PATH "$p/програми" $PATH
+        end
+    end
 end
 
 function укр
@@ -13,6 +18,12 @@ function укр
         if test -d "$p/bin"
             if not contains -- "$p/bin" $PATH
                 set -gx PATH "$p/bin" $PATH
+            end
+        end
+
+        if test -d "$p/програми"
+            if not contains -- "$p/програми" $PATH
+                set -gx PATH "$p/програми" $PATH
             end
         end
     end

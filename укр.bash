@@ -6,7 +6,7 @@ set -eo pipefail
 # Константи та глобальні змінні
 # ============================================================================
 
-readonly UKR_VERSION="0.3.0"
+readonly UKR_VERSION="0.4.0"
 readonly UKR_DIR="$HOME/.укр"
 readonly UKR_PROGRAMS_DIR="$HOME/.local/share/укр"
 readonly UKR_INSTALLED_PROGRAMS_DIR="$UKR_PROGRAMS_DIR/встановлені"

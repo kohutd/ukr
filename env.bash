@@ -5,6 +5,13 @@ for p in "$HOME/.local/share/укр/поточні/"*; do
       *) PATH="$p/bin:$PATH" ;;
     esac
   fi
+
+  if [ -d "$p/програми" ]; then
+    case ":$PATH:" in
+      *":$p/програми:"*) ;;
+      *) PATH="$p/програми:$PATH" ;;
+    esac
+  fi
 done
 
 укр() {
@@ -15,6 +22,13 @@ done
       case ":$PATH:" in
         *":$p/bin:"*) ;;
         *) PATH="$p/bin:$PATH" ;;
+      esac
+    fi
+
+    if [ -d "$p/програми" ]; then
+      case ":$PATH:" in
+        *":$p/програми:"*) ;;
+        *) PATH="$p/програми:$PATH" ;;
       esac
     fi
   done
